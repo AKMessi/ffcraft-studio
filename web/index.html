@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FFCraft Studio — Local FFmpeg AI Assistant</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <!-- Top Bar -->
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-icon" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <rect x="2.5" y="4" width="19" height="16" rx="3.5" stroke="currentColor" stroke-width="1.9"/>
+            <path d="M7 4V20M17 4V20M2.5 9H7M2.5 15H7M17 9H21.5M17 15H21.5" stroke="currentColor" stroke-width="1.6"/>
+            <path d="M10.5 9.5L14.5 12L10.5 14.5V9.5Z" fill="currentColor"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <span class="brand-name">FFCraft Studio</span>
+          <span class="brand-tag">1.5B Local</span>
+        </div>
+      </div>
+
+      <div class="topbar-right">
+        <div id="ffmpegPill" class="status-pill muted" title="Local FFmpeg status">
+          <span class="dot"></span>
+          <span id="ffmpegPillText">ffmpeg</span>
+        </div>
+        <div id="modelPill" class="status-pill starting" title="Local FFCraft-1.5B model status">
+          <span class="dot"></span>
+          <span id="modelPillText">Starting model…</span>
+        </div>
+        <button id="newChatBtn" class="btn-ghost" title="Start a new task (Ctrl+K)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 5v14M5 12h14"/>
+          </svg>
+          <span>New</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Setup / Download Banner (hidden when ready) -->
+    <section id="setupBanner" class="setup-banner hidden">
+      <div class="setup-inner">
+        <div class="setup-info">
+          <div id="setupTitle" class="setup-title">FFCraft-1.5B model not found locally</div>
+          <div id="setupSubtitle" class="setup-subtitle">
+            Download <code>ffcraft-1.5b-v2.Q8_0.gguf</code> (1.6 GB) directly from Hugging Face (<code>AKMESSI/FFCraft-1.5B-GGUF</code>).
+          </div>
+          <div id="downloadBarWrap" class="progress-wrap hidden">
+            <div class="progress-track">
+              <div id="downloadBarFill" class="progress-fill" style="width: 0%"></div>
+            </div>
+            <div id="downloadStats" class="progress-meta">0% · 0 MB / 1.6 GB</div>
+          </div>
+        </div>
+        <div class="setup-actions">
+          <button id="downloadModelBtn" class="btn-primary">Download Model (1.6 GB)</button>
+          <button id="retryStartBtn" class="btn-ghost hidden">Retry</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Main Chat Canvas -->
+    <main id="chatScroll" class="chat-scroll">
+      <div class="chat-container">
+        <!-- Empty Welcome View -->
+        <section id="welcomeView" class="welcome">
+          <div class="welcome-badge">100% Local · Execution-Verified FFmpeg AI</div>
+          <h1>Describe what you want.<br/>Get the exact FFmpeg command.</h1>
+          <p class="welcome-sub">
+            Attach a video or audio file to auto-detect duration, resolution, and codecs via <code>ffprobe</code> —
+            or just type in plain English. FFCraft asks 1–3 quick questions only when needed, then runs it in 1 click.
+          </p>
+
+          <div class="starter-grid">
+            <button class="starter-chip" data-prompt="compress this video to under 10MB for Discord">
+              <span class="chip-title">Fit under 10MB for Discord</span>
+              <span class="chip-sub">Exact 2-pass VBR bitrate math</span>
+            </button>
+            <button class="starter-chip" data-prompt="remux this mkv to mp4 without re-encoding, keep exact quality">
+              <span class="chip-title">Lossless MKV → MP4 remux</span>
+              <span class="chip-sub">Instant stream copy (-c copy)</span>
+            </button>
+            <button class="starter-chip" data-prompt="make a crisp 480px 15fps looping GIF from this video">
+              <span class="chip-title">High-quality palette GIF</span>
+              <span class="chip-sub">Custom palettegen + Lanczos</span>
+            </button>
+            <button class="starter-chip" data-prompt="turn this horizontal video into 9:16 vertical for TikTok / Reels">
+              <span class="chip-title">Horizontal → 9:16 TikTok</span>
+              <span class="chip-sub">Center crop or blurred backdrop</span>
+            </button>
+            <button class="starter-chip" data-prompt="normalize the loudness for podcasts and compress to mono 64k mp3">
+              <span class="chip-title">Podcast audio cleanup</span>
+              <span class="chip-sub">EBU R128 loudnorm + mono MP3</span>
+            </button>
+            <button class="starter-chip" data-prompt="my gameplay recording is way too big, shrink it without ruining quality">
+              <span class="chip-title">Shrink huge gameplay clip</span>
+              <span class="chip-sub">Smart H.264 / H.265 / AV1 CRF</span>
+            </button>
+          </div>
+        </section>
+
+        <!-- Dynamic Message Stream -->
+        <div id="messagesList" class="messages-list"></div>
+      </div>
+    </main>
+
+    <!-- Bottom Composer Dock -->
+    <footer class="composer-dock">
+      <div class="composer-inner">
+        <!-- Attached Media Context Bar -->
+        <div id="attachedCard" class="attached-card hidden">
+          <div class="attached-left">
+            <div class="file-icon" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+              </svg>
+            </div>
+            <div class="attached-meta">
+              <div id="attachedName" class="attached-name"></div>
+              <div id="attachedPills" class="meta-pills"></div>
+            </div>
+          </div>
+          <button id="detachBtn" class="icon-btn" title="Detach file">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Optional Manual Path Input Bar -->
+        <div id="pathBar" class="path-bar hidden">
+          <input id="manualPathInput" type="text" placeholder="Paste full local file path (e.g. C:\Videos\clip.mp4) and press Enter…" />
+          <button id="probePathBtn" class="btn-secondary">Inspect</button>
+          <button id="closePathBtn" class="icon-btn" title="Cancel">✕</button>
+        </div>
+
+        <!-- Main Input Box -->
+        <div class="composer-box">
+          <div class="composer-tools">
+            <button id="attachFileBtn" class="btn-attach" title="Pick a video or audio file (auto-reads duration & codecs via ffprobe)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+              </svg>
+              <span>Attach File</span>
+            </button>
+            <button id="pastePathToggleBtn" class="icon-btn subtle" title="Or paste a local file path">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+              </svg>
+            </button>
+          </div>
+
+          <textarea
+            id="promptInput"
+            rows="1"
+            placeholder="Describe what you want in plain English… (Enter to send, Shift+Enter for new line)"
+          ></textarea>
+
+          <button id="sendBtn" class="btn-send" title="Send (Enter)">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <line x1="12" y1="19" x2="12" y2="5"/>
+              <polyline points="5 12 12 5 19 12"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="composer-hint">
+          <span>Powered by <strong>FFCraft-1.5B</strong> · Runs 100% offline on your machine</span>
+          <span>Always keep backups of irreplaceable media</span>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
